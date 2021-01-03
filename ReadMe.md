@@ -17,6 +17,6 @@ conda env create -f ./win10_conda_env/transcribe.yml
 
 spilt.py --name=Offerman
 
-transcribe.py --model ../DeepSpeechModels/deepspeech-0.9.1-models.pbmm --scorer ../DeepSpeechModels/deepspeech-0.9.1-models.scorer --name=Offerman
+transcribe.py --model ../DeepSpeechModels/deepspeech-0.8.2-models.pbmm --scorer ../DeepSpeechModels/deepspeech-0.8.2-models.scorer --name=Offerman
 
-gecko_split.py --model ../DeepSpeechModels/deepspeech-0.8.2-models.pbmm --scorer ../DeepSpeechModels/deepspeech-0.8.2-models.scorer --output ../Datasets --media ../Media/ --name Offerman --min 0 --max 20000
+gecko_split.py  --output ../Datasets --media ../Media/ --name Offerman --min 0 --max 20000
