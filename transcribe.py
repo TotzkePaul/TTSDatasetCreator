@@ -149,9 +149,9 @@ def transcribe_file(args, ds, filepath, index):
     sec_silence = AudioSegment.silent(duration=1000)
 
     for start, stop in nonsilence2:
+        # increase clip bounds by 0.1s on each side
         c_start = max(start-100, start)
         c_stop = min(stop, stop+100)
-        # clip_audio = audio_file[max(start-100, start):min(stop, stop+100)] min(stop, stop+10500)
         clip_audio_16000 = sec_silence + audio_file[c_start:c_stop] + sec_silence
 
         audio = np.frombuffer(clip_audio_16000.raw_data, np.int16)
