@@ -1,58 +1,10 @@
 import argparse
-import json
 import glob
 import os
 from pydub import AudioSegment
 import random
 from pydub.generators import WhiteNoise
-import sys
-import wave
 import json
-import math
-import numpy as np
-from deepspeech import Model, version
-from timeit import default_timer as timer
-
-def words_from_candidate_transcript2(metadata):
-    word = ""
-    word_list = []
-    word_start_time = 0
-    # Loop through each character
-    for i, token in enumerate(metadata.tokens):
-        # Append character to word if it's not a space
-        if token.text != " ":
-            if len(word) == 0:
-                # Log the start time of the new word
-                word_start_time = token.start_time
-
-            word = word + token.text
-        # Word boundary is either a space or the last character in the array
-        if token.text == " " or i == len(metadata.tokens) - 1:
-            word_duration = token.start_time - word_start_time
-
-            if word_duration < 0:
-                word_duration = 0
-
-            each_word = dict()
-            each_word["word"] = word
-            each_word["start_time_ms"] = round(word_start_time, 4) * 1000
-            each_word["end_time_ms"] = round(word_start_time + word_duration, 4) * 1000
-
-            word_list.append(each_word)
-            # Reset
-            word = ""
-            word_start_time = 0
-
-    return word_list
-
-
-def metadata_json(metadata):
-    json_result = dict()
-    json_result["transcripts"] = [{
-        "confidence": transcript.confidence,
-        "words": words_from_candidate_transcript2(transcript),
-    } for transcript in metadata.transcripts]
-    return json_result
 
 
 def partition(l, pred):
@@ -72,19 +24,6 @@ def terms_to_string(terms):
 
 def main():
     parser = argparse.ArgumentParser(description='Split audio based on gecko transcript.')
-    parser.add_argument('--model', required=True, help='Path to the model (protocol buffer binary file)')
-    parser.add_argument('--scorer', required=False, help='Path to the external scorer file')
-    parser.add_argument('--beam_width', type=int, help='Beam width for the CTC decoder')
-    parser.add_argument('--lm_alpha', type=float,
-                        help='Language model weight (lm_alpha). If not specified, use default from the scorer package.')
-    parser.add_argument('--lm_beta', type=float,
-                        help='Word insertion bonus (lm_beta). If not specified, use default from the scorer package.')
-    parser.add_argument('--extended', required=False, action='store_true', help='Output string from extended metadata')
-    parser.add_argument('--json', required=False, action='store_true',
-                        help='Output json from metadata with timestamp of each word')
-    parser.add_argument('--candidate_transcripts', type=int, default=3,
-                        help='Number of candidate transcripts to include in JSON output')
-    parser.add_argument('--hot_words', type=str, help='Hot-words and their boosts.')
     parser.add_argument('--output', required=True, help='output directory')
     parser.add_argument('--media', required=True, help='input directory')
     parser.add_argument('--name', required=True, help='name of project')
@@ -180,43 +119,11 @@ def main():
                     clip_audio = audio_file[start:end]
 
                 clip_audio.export(clip_path, format="wav")
-                if is_auto_transcript:
-                    wg_set.append('{}/wavs/{}'.format(output_dir, clip_name, sentence))
-                    train_txt.append('{}/wavs/{}|{}'.format(output_dir, clip_name, sentence))
-                    dummy_txt.append('{}/{}|{}'.format('DUMMY', clip_name, sentence))
-                    flowtron_txt.append('{}/wavs/{}|{}|0'.format(output_dir, clip_name, sentence))
 
-                else:
-                    # train_txt.append('{}/wavs/{}|{}'.format(output_dir, clip_name, sentence))
-                    val_set.append('{}/wavs/{}|{}'.format(output_dir, clip_name, sentence))
-                    wg_set.append('{}/wavs/{}'.format(output_dir, clip_name, sentence))
-                    flowtron_txt.append('{}/wavs/{}|{}|0'.format(output_dir, clip_name, sentence))
-                    dummy_txt.append('{}/{}|{}'.format('DUMMY', clip_name, sentence))
-
-                    augment_ids = ['a', 'b', 'c']
-                    for augment_id in augment_ids:
-
-                        augmented_clip_name = "{0}_{1:0>4d}{2}.wav".format(base_clip_name, i, augment_id)
-                        augmented_clip_audio = audio_file[start:end]
-                        augmented_clip_path = "{0}/wavs/{1}".format(output_dir, augmented_clip_name)
-
-                        rand_start = random.randint(0, len(white_noise)-len(augmented_clip_audio))
-                        noise = white_noise[rand_start:]
-
-                        combined = augmented_clip_audio.overlay(noise)
-
-                        if pad_silence:
-                            combined = quarter_sec_silence + combined + half_sec_silence
-
-                        combined.export(augmented_clip_path, format="wav")
-
-                        # train_txt.append('{}/wavs/{}|{}'.format(output_dir, augmented_clip_name, sentence))
-
-                        train_set.append('{}/wavs/{}|{}'.format(output_dir, augmented_clip_name, sentence))
-                        flowtron_txt.append('{}/wavs/{}|{}|0'.format(output_dir, augmented_clip_name, sentence))
-                        dummy_txt.append('{}/{}|{}'.format('DUMMY', augmented_clip_name, sentence))
-
-
+                wg_set.append('{}/wavs/{}'.format(output_dir, clip_name, sentence))
+                train_txt.append('{}/wavs/{}|{}'.format(output_dir, clip_name, sentence))
+                dummy_txt.append('{}/{}|{}'.format('DUMMY', clip_name, sentence))
+                flowtron_txt.append('{}/wavs/{}|{}|0'.format(output_dir, clip_name, sentence))
 
     dummy_filelist = '{}/dummy_{}_all.txt'.format(output_dir, args.name)
     complete_filelist = '{}/{}_all.txt'.format(output_dir, args.name)
@@ -247,7 +154,6 @@ def main():
         f.write('\n'.join(flowtron_train))
     with open(flowtron_val_file, 'w', encoding='utf-8') as f:
         f.writelines('\n'.join(flowtron_val))
-
 
     with open(train_filelist, 'w', encoding='utf-8') as f:
         f.write('\n'.join(train_set))

@@ -16,23 +16,6 @@ from pydub.silence import split_on_silence, detect_nonsilent, detect_silence
 from multiprocessing import Process
 
 
-def unpunctuated_terms(words):
-    if len(words) == 0:
-        return []
-
-    terms = []
-
-    for word in words:
-        term = dict()
-        term["start_time_ms"] = word["start_time_ms"]
-        term["end_time_ms"] = word["end_time_ms"]
-        term["text"] = word["word"]
-        term["type"] = "WORD"
-        terms.append(term)
-
-    return terms
-
-
 def words_from_candidate_transcript(metadata):
     word = ""
     word_list = []
@@ -95,7 +78,6 @@ def split_long_nonsilence(nonsilence, silence, min_duration, max_duration):
 
     if output_ranges[0] == [0, 0]:
         output_ranges.pop(0)
-
 
     return output_ranges
 
@@ -171,8 +153,6 @@ def transcribe_file(args, ds, filepath, index):
 
         if ds_text == '':
             continue
-
-        # sentence_list = unpunctuated_terms(sentence_list)
 
         json_data["transcripts"][0]["words"].append(sentence_list)
 
