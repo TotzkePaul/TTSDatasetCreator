@@ -1,12 +1,6 @@
 git clone https://github.com/TotzkePaul/TTSDatasetCreator/
 
-mkdir ./Models
-
-mkdir ./Workspace
-
-mkdir ./Datasets
-
-mkdir ./DeepSpeechModels
+`python ./TTSDatasetCreator/init.py`
 
 Go to https://github.com/mozilla/DeepSpeech/releases/tag/v0.8.2
 and deepspeech-0.8.2-models.pbmm and deepspeech-0.8.2-models.scorer to DeepSpeechModels
@@ -24,11 +18,11 @@ Pick a Workspace name (eg Offerman) and save source audio to ../Workspace/{Works
 
 Review corresponding wav and transcript files using https://gong-io.github.io/gecko/. 
 
-Save updated transcript to ../Workspace/{WorkspaceName}/gecko with the same transcript file
+Save updated transcript to ../Workspace/{WorkspaceName}/gecko with the same filename as the transcript file
 
 `python gecko_split.py  --output ../Datasets --media ../Media/ --name {WorkspaceName} --min 0 --max 12000`
 
-The completed dataset now exists in ./Datasets/{WorkspaceName}
+The complete dataset for clips 0 to 12 seconds now exists in ./Datasets/{WorkspaceName}
 
 {WorkspaceName}_wg.txt is for waveglow; 
 
