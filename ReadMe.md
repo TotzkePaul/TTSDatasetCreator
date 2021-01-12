@@ -11,7 +11,7 @@ cd ./TTSDatasetCreator
 
 Pick a Workspace name (eg Offerman) and save source audio to ../Workspace/{WorkspaceName}/src 
 
-`python spilt.py --name={WorkspaceName}`
+`python split.py --name={WorkspaceName}`
 
 `python transcribe.py --model ../DeepSpeechModels/deepspeech-0.8.2-models.pbmm --scorer ../DeepSpeechModels/deepspeech-0.8.2-models.scorer --name={WorkspaceName}`
 

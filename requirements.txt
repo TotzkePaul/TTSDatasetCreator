@@ -3,3 +3,4 @@ pydub==0.24.1
 tensorboard==2.4.0
 tensorflow==2.4.0
 deepspeech-gpu==0.9.3
+resemblyzer

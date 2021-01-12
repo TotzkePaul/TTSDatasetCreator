@@ -91,6 +91,66 @@ def metadata_json(metadata):
     return json_result
 
 
+def get_segments(args, audio_file, segments_file):
+    if os.path.exists(segments_file):
+        with open(segments_file) as json_file:
+            json_data = json.load(json_file)
+            return json_data["sound_ranges"][0]["sounds"]
+    else:
+        long_nonsilence = detect_nonsilent(audio_file, min_silence_len=args.long_silence,
+                                           silence_thresh=args.silence_thresh)
+
+        silence = detect_silence(audio_file, min_silence_len=args.short_silence,
+                                 silence_thresh=args.silence_thresh)
+
+        gaps_silence = list(map(lambda x: [x[0] + args.short_silence / 2, x[1] - args.short_silence / 2],
+                                detect_silence(audio_file, min_silence_len=2 * args.short_silence,
+                                               silence_thresh=args.silence_thresh + 20)))
+
+        nonsilence1 = split_long_nonsilence(long_nonsilence, silence, args.min * 1000, args.max * 1000)
+
+        segments = split_long_nonsilence(nonsilence1, gaps_silence, args.min * 1000, args.max * 1000)
+        return segments
+
+
+def audiosegment_to_librosawav(audiosegment):
+    samples = audiosegment.get_array_of_samples()
+    # new_sound = audiosegment._spawn(samples)
+    arr = np.array(samples).astype(np.float32)
+    return arr
+
+
+def get_speaker_segments(args, audio_file, segments):
+    from resemblyzer import preprocess_wav, VoiceEncoder
+    encoder = VoiceEncoder()
+    speaker_embeds = []
+
+    speaker_segments = []
+    for start, end in segments:
+        clip = audio_file[start:end]
+        segment_npy = audiosegment_to_librosawav(clip)
+        segment_wav = preprocess_wav(segment_npy)
+        current_embed = encoder.embed_utterance(segment_wav)
+        is_any_similar = False
+
+        min_similarity = 0.85
+        name_id = len(speaker_embeds)
+        for index, speaker_embed in enumerate(speaker_embeds):
+            similarity = current_embed @ speaker_embed
+
+            if similarity > min_similarity:
+                min_similarity = similarity
+                name_id = index
+                # speaker_segments.append((name_id, [start, end]))
+                is_any_similar = True
+
+        if not is_any_similar:
+            speaker_embeds.append(current_embed)
+        speaker_segments.append((name_id, [start, end]))
+
+    return speaker_segments
+
+
 def transcribe_file(args, ds, filepath, index):
     sys.setrecursionlimit(15000)
 
@@ -101,23 +161,15 @@ def transcribe_file(args, ds, filepath, index):
 
     transcript_path = '{0}/{1}/{2}/{3}.transcript.json'.format(args.media, args.name, args.output, file_basename)
 
+    segment_path = '{0}/{1}/{2}/{3}.segment.json'.format(args.media, args.name, args.output, file_basename)
+
     print("{}: {}".format(index, filepath))
 
     audio_file = AudioSegment.from_wav(filepath)
-    long_nonsilence = detect_nonsilent(audio_file, min_silence_len=args.long_silence,
-                                       silence_thresh=args.silence_thresh)
 
-    silence = detect_silence(audio_file, min_silence_len=args.short_silence,
-                             silence_thresh=args.silence_thresh)
+    segments = get_segments(args, audio_file, segment_path)
 
-    gaps_silence = list(map(lambda x: [x[0] + args.short_silence / 2, x[1] - args.short_silence / 2],
-                            detect_silence(audio_file, min_silence_len=2 * args.short_silence,
-                                           silence_thresh=args.silence_thresh + 20)))
-
-    nonsilence1 = split_long_nonsilence(long_nonsilence, silence, args.min * 1000, args.max * 1000)
-
-    nonsilence2 = split_long_nonsilence(nonsilence1, gaps_silence, args.min * 1000, args.max * 1000)
-    print("clips: {}".format(len(nonsilence2)))
+    print("clips: {}".format(len(segments)))
 
     sentences = []
     monologues = []
@@ -130,15 +182,17 @@ def transcribe_file(args, ds, filepath, index):
 
     sec_silence = AudioSegment.silent(duration=1000)
 
-    for start, stop in nonsilence2:
+    speaker_segments = get_speaker_segments(args, audio_file, segments)
+
+    for speaker_id, (start, stop) in speaker_segments:
         # increase clip bounds by 0.1s on each side
         c_start = max(start-100, start)
         c_stop = min(stop, stop+100)
         clip_audio_16000 = sec_silence + audio_file[c_start:c_stop] + sec_silence
 
-        audio = np.frombuffer(clip_audio_16000.raw_data, np.int16)
+        audio_npy = np.frombuffer(clip_audio_16000.raw_data, np.int16)
 
-        transcription = metadata_json(ds.sttWithMetadata(audio, 1))
+        transcription = metadata_json(ds.sttWithMetadata(audio_npy, 1))
 
         terms = transcription["transcripts"][0]["words"]
 
@@ -168,8 +222,8 @@ def transcribe_file(args, ds, filepath, index):
                 term["type"] = word["type"]
                 monologue_terms.append(term)
 
-            #monologue["speaker"] = dict()
-            #monologue["speaker"]["id"] = transcription["transcripts"][0]["confidence"]
+            monologue["speaker"] = dict()
+            monologue["speaker"]["id"] = speaker_id
             monologue["terms"] = monologue_terms
             monologue["start"] = start / 1000
             monologue["end"] = stop / 1000
@@ -187,7 +241,7 @@ def transcribe_file(args, ds, filepath, index):
                 sentences.append(sentence)
 
     json_data["transcripts"][0]["sentences"] = sentences
-    json_data["transcripts"][0]["nonsilent_ranges"] = nonsilence2
+    json_data["transcripts"][0]["nonsilent_ranges"] = segments
 
     json_dict = dict()
     json_dict["schemaVersion"] = "2.0"

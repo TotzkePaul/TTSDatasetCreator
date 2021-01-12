@@ -10,7 +10,7 @@ workspace = input("Name of Project: ")
 workspace_dir = "../Workspace"
 
 mkdir('{}/{}'.format(workspace_dir, workspace))
-mkdir('{}/{}/wav'.format(workspace_dir, workspace))
+mkdir('{}/{}/wavs'.format(workspace_dir, workspace))
 mkdir('{}/{}/transcript'.format(workspace_dir, workspace))
 mkdir('{}/{}/gecko'.format(workspace_dir, workspace))
 mkdir('{}/{}/src'.format(workspace_dir, workspace))
