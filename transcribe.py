@@ -115,40 +115,46 @@ def get_segments(args, audio_file, segments_file):
 
 def audiosegment_to_librosawav(audiosegment):
     samples = audiosegment.get_array_of_samples()
-    # new_sound = audiosegment._spawn(samples)
     arr = np.array(samples).astype(np.float32)
     return arr
 
 
-def get_speaker_segments(args, audio_file, segments):
-    from resemblyzer import preprocess_wav, VoiceEncoder
-    encoder = VoiceEncoder()
-    speaker_embeds = []
+def get_speaker_segments(args, audio_file, segments_file):
+    if os.path.exists(segments_file):
+        with open(segments_file) as json_file:
+            json_data = json.load(json_file)
+            return [(monologue["speaker"]["id"], monologue["start"]*1000, monologue["end"]*1000,) for monologue in json_data["monologues"]]
+    else:
+        from resemblyzer import preprocess_wav, VoiceEncoder
+        encoder = VoiceEncoder()
+        speaker_embeds = []
 
-    speaker_segments = []
-    for start, end in segments:
-        clip = audio_file[start:end]
-        segment_npy = audiosegment_to_librosawav(clip)
-        segment_wav = preprocess_wav(segment_npy)
-        current_embed = encoder.embed_utterance(segment_wav)
-        is_any_similar = False
+        segments = get_segments(args, audio_file, segments_file)
 
-        min_similarity = 0.85
-        name_id = len(speaker_embeds)
-        for index, speaker_embed in enumerate(speaker_embeds):
-            similarity = current_embed @ speaker_embed
+        speaker_segments = []
+        for start, end in segments:
+            clip = audio_file[start:end]
+            segment_npy = audiosegment_to_librosawav(clip)
+            segment_wav = preprocess_wav(segment_npy)
+            current_embed = encoder.embed_utterance(segment_wav)
+            is_any_similar = False
 
-            if similarity > min_similarity:
-                min_similarity = similarity
-                name_id = index
-                # speaker_segments.append((name_id, [start, end]))
-                is_any_similar = True
+            min_similarity = 0.85
+            name_id = len(speaker_embeds)
+            for index, speaker_embed in enumerate(speaker_embeds):
+                similarity = current_embed @ speaker_embed
 
-        if not is_any_similar:
-            speaker_embeds.append(current_embed)
-        speaker_segments.append((name_id, [start, end]))
+                if similarity > min_similarity:
+                    min_similarity = similarity
+                    name_id = index
+                    # speaker_segments.append((name_id, [start, end]))
+                    is_any_similar = True
 
-    return speaker_segments
+            if not is_any_similar:
+                speaker_embeds.append(current_embed)
+            speaker_segments.append((name_id, [start, end]))
+
+        return speaker_segments
 
 
 def transcribe_file(args, ds, filepath, index):

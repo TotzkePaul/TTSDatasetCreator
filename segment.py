@@ -79,13 +79,12 @@ def load_speaker_embeds(args):
             speaker_embeds_list.append((dirname, speaker_embeds,))
     return speaker_embeds_list
 
-def get_name_id(speaker_embeds_list, audio_segment):
-    encoder = VoiceEncoder()
+def get_name_id(args, encoder, speaker_embeds_list, audio_segment):
     segment_npy = audiosegment_to_librosawav(audio_segment)
     segment_wav = preprocess_wav(segment_npy)
     current_embed = encoder.embed_utterance(segment_wav)
 
-    min_similarity = 0.75
+    min_similarity = args.min_similarity
     name_id = ''
     for speaker_id, speaker_embeds in speaker_embeds_list:
         for speaker_embed in speaker_embeds:
@@ -99,11 +98,12 @@ def get_name_id(speaker_embeds_list, audio_segment):
 
 def get_speaker_segments(args, audio_file, segments):
     speaker_embeds = load_speaker_embeds(args)
+    encoder = VoiceEncoder()
 
     speaker_segments = []
     for start, end in segments:
         audio_segment = audio_file[start:end]
-        name_id = get_name_id(speaker_embeds,audio_segment)
+        name_id = get_name_id(args, encoder, speaker_embeds, audio_segment)
         speaker_segments.append((name_id, [start, end]))
     return speaker_segments
 
@@ -194,6 +194,7 @@ def main():
     parser.add_argument('--max', default=12, type=int, help='max clip duration in seconds')
     parser.add_argument('--reuse', dest='reuse', action='store_true', help='reuse transcripts')
     parser.add_argument('--silence_thresh', default=-55, help='silence threshold for silences(db)')
+    parser.add_argument('--min_similarity', default=-.75, help='silence threshold for silences(db)')
     parser.add_argument('--max_workers', default=1, type=int, help='silence threshold for silences(db)')
     args = parser.parse_args()
 
