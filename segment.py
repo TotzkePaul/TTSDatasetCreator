@@ -10,6 +10,7 @@ import librosa
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent, detect_silence
 from pydub.utils import make_chunks
+from resemblyzer import preprocess_wav, VoiceEncoder
 
 
 def remove_inhales(segments, amplitudes, threshold, min_duration, max_duration):
@@ -49,11 +50,6 @@ def remove_last_inhales(start, end, amplitudes, threshold, min_duration):
 
 
 def audiosegment_to_librosawav(audiosegment):
-    # samples = audiosegment.get_array_of_samples()
-    # new_sound = audiosegment._spawn(samples)
-    # arr = np.array(samples, dtype=np.float32)
-    # y, index = librosa.effects.trim(arr)
-
     channel_sounds = audiosegment.split_to_mono()
     samples = [s.get_array_of_samples() for s in channel_sounds]
 
@@ -63,34 +59,52 @@ def audiosegment_to_librosawav(audiosegment):
 
     return fp_arr
 
-
-def get_speaker_segments(args, audio_file, segments):
-    from resemblyzer import preprocess_wav, VoiceEncoder
+def load_speaker_embeds(args):
     encoder = VoiceEncoder()
-    speaker_embeds = []
 
-    speaker_segments = []
-    for start, end in segments:
-        clip = audio_file[start:end]
-        segment_npy = audiosegment_to_librosawav(clip)
-        segment_wav = preprocess_wav(segment_npy)
-        current_embed = encoder.embed_utterance(segment_wav)
-        is_any_similar = False
+    speakers_dir = '{0}/{1}/{2}/'.format(args.media, args.name, args.speakers)
+    speakers_dir_subfolders = [f.path for f in os.scandir(speakers_dir) if f.is_dir()] # list(enumerate(glob.glob("/{}/*/".format(speakers_dir))))
+    speaker_embeds_list = []
+    for speakers_dir_subfolder in speakers_dir_subfolders:
+        speaker_embeds = []
+        wav_file_list = list(enumerate(glob.glob("{}/*.wav".format(speakers_dir_subfolder))))
+        for index, wav_file in wav_file_list:
+            wav = AudioSegment.from_wav(wav_file)
+            librosa_npy = audiosegment_to_librosawav(wav)
+            librosa_wav = preprocess_wav(librosa_npy)
+            current_embed = encoder.embed_utterance(librosa_wav)
+            speaker_embeds.append(current_embed)
+        if len(speaker_embeds) > 0:
+            dirname = os.path.basename(speakers_dir_subfolder)
+            speaker_embeds_list.append((dirname, speaker_embeds,))
+    return speaker_embeds_list
 
-        min_similarity = 0.75
-        name_id = len(speaker_embeds)
-        for index, speaker_embed in enumerate(speaker_embeds):
+def get_name_id(speaker_embeds_list, audio_segment):
+    encoder = VoiceEncoder()
+    segment_npy = audiosegment_to_librosawav(audio_segment)
+    segment_wav = preprocess_wav(segment_npy)
+    current_embed = encoder.embed_utterance(segment_wav)
+
+    min_similarity = 0.75
+    name_id = ''
+    for speaker_id, speaker_embeds in speaker_embeds_list:
+        for speaker_embed in speaker_embeds:
             similarity = current_embed @ speaker_embed
 
             if similarity > min_similarity:
                 min_similarity = similarity
-                name_id = index
-                is_any_similar = True
+                name_id = speaker_id
+    return name_id
 
-        if not is_any_similar:
-            speaker_embeds.append(current_embed)
+
+def get_speaker_segments(args, audio_file, segments):
+    speaker_embeds = load_speaker_embeds(args)
+
+    speaker_segments = []
+    for start, end in segments:
+        audio_segment = audio_file[start:end]
+        name_id = get_name_id(speaker_embeds,audio_segment)
         speaker_segments.append((name_id, [start, end]))
-
     return speaker_segments
 
 
@@ -171,6 +185,7 @@ def segment_many_parallel(args, filepaths):
 def main():
     parser = argparse.ArgumentParser(description='Segment audio based on silence.')
     parser.add_argument('--output', default='transcripts', help='output directory')
+    parser.add_argument('--speakers', default='speakers', help='output directory')
     parser.add_argument('--media', default='../Workspace', help='input directory')
     parser.add_argument('--name', required=True, help='name of project')
     parser.add_argument('--long_silence', default=1000, help='input directory')
