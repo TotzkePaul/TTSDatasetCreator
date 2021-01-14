@@ -147,7 +147,6 @@ def get_speaker_segments(args, audio_file, segments_file):
                 if similarity > min_similarity:
                     min_similarity = similarity
                     name_id = index
-                    # speaker_segments.append((name_id, [start, end]))
                     is_any_similar = True
 
             if not is_any_similar:
@@ -173,10 +172,7 @@ def transcribe_file(args, ds, filepath, index):
 
     audio_file = AudioSegment.from_wav(filepath)
 
-    segments = get_segments(args, audio_file, segment_path)
-
-    print("clips: {}".format(len(segments)))
-
+    # segments = get_segments(args, audio_file, segment_path)
     sentences = []
     monologues = []
 
@@ -188,10 +184,11 @@ def transcribe_file(args, ds, filepath, index):
 
     sec_silence = AudioSegment.silent(duration=1000)
 
-    speaker_segments = get_speaker_segments(args, audio_file, segments)
+    speaker_segments = get_speaker_segments(args, audio_file, segment_path)
 
-    for speaker_id, (start, stop) in speaker_segments:
-        # increase clip bounds by 0.1s on each side
+    print("clips: {}".format(len(speaker_segments)))
+
+    for speaker_id, start, stop in speaker_segments:
         c_start = max(start-100, start)
         c_stop = min(stop, stop+100)
         clip_audio_16000 = sec_silence + audio_file[c_start:c_stop] + sec_silence
@@ -247,7 +244,7 @@ def transcribe_file(args, ds, filepath, index):
                 sentences.append(sentence)
 
     json_data["transcripts"][0]["sentences"] = sentences
-    json_data["transcripts"][0]["nonsilent_ranges"] = segments
+    json_data["transcripts"][0]["speaker_segments"] = speaker_segments
 
     json_dict = dict()
     json_dict["schemaVersion"] = "2.0"
