@@ -24,28 +24,27 @@ def terms_to_string(terms):
 
 def main():
     parser = argparse.ArgumentParser(description='Split audio based on gecko transcript.')
-    parser.add_argument('--output', required=True, help='output directory')
-    parser.add_argument('--media', required=True, help='input directory')
+    parser.add_argument('--output', default='../Datasets', help='output directory')
+    parser.add_argument('--media', default='../Workspace', help='input directory')
     parser.add_argument('--name', required=True, help='name of project')
-    parser.add_argument('--min', default=200, type=int, help='min duration of clip')
+    parser.add_argument('--speaker', help='only include this speaker')
+    parser.add_argument('--min', default=750, type=int, help='min duration of clip')
     parser.add_argument('--max', default=13000, type=int, help='max duration of clip')
-    parser.add_argument('--lead', default=50, help='amount to trim at beginning')
-    parser.add_argument('--trail', default=100, help='amount to trim at end')
+    parser.add_argument('--lead_silence', default=0, help='amount to trim at beginning')
+    parser.add_argument('--trail_silence', default=0, help='amount to trim at end')
     parser.add_argument('--partition', default=.9, help='max duration of clip')
     args = parser.parse_args()
 
     output_dir = '{0}/{1}'.format(args.output, args.name)
-    audio_dir = '{0}/wavs/22050/{1}'.format(args.media, args.name)
-    transcript_dir = '{0}/transcripts/{1}'.format(args.media, args.name)
-    gecko_dir = '{0}/gecko/{1}'.format(args.media, args.name)
+    workspace_dir = '{0}/{1}'.format(args.media, args.name)
+    audio_dir = '{0}/wavs/22050/'.format(workspace_dir)
+    transcript_dir = '{0}/transcripts'.format(workspace_dir)
+    gecko_dir = '{0}/gecko'.format(workspace_dir)
 
     print(output_dir, audio_dir, transcript_dir, gecko_dir)
 
-    white_noise = WhiteNoise().to_audio_segment(duration=100*1000).low_pass_filter(10000).high_pass_filter(200)
-    white_noise = white_noise.apply_gain(-60 - white_noise.dBFS).set_frame_rate(22050)
-
-    half_sec_silence = AudioSegment.silent(duration=500)
-    quarter_sec_silence = AudioSegment.silent(duration=250)
+    lead_silence = AudioSegment.silent(duration=args.lead_silence)
+    trail_silence = AudioSegment.silent(duration=args.trail_silence)
 
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
@@ -53,7 +52,7 @@ def main():
     if not os.path.isdir(output_dir+'/wavs'):
         os.mkdir(output_dir+'/wavs')
 
-    pad_silence = False
+    pad_silence = (args.lead_silence + args.trail_silence) > 0
     train_txt = []
     dummy_txt = []
 
@@ -82,7 +81,6 @@ def main():
             filepath = gecko_path
             is_auto_transcript = False
 
-
         with open(filepath) as json_file:
             json_data = json.load(json_file)
             print(filepath)
@@ -96,14 +94,17 @@ def main():
 
                 clip_path = "{0}/wavs/{1}".format(output_dir, clip_name)
 
-                start = max(monologue["start"] * 1000 - args.lead, 0)
-                end = monologue["end"] * 1000 + args.trail
+                start = monologue["start"] * 1000
+                end = monologue["end"] * 1000
 
                 duration = end - start
 
                 is_empty = len(sentence) == 0 or sentence.isspace()
 
                 include = args.min <= duration <= args.max and not is_empty
+
+                if args.speaker is not None and len(args.speaker) > 0 and monologue["speaker"]["id"] != args.speaker:
+                    include = False
 
                 if duration > 9000:
                     cntr = cntr + 1
@@ -114,7 +115,7 @@ def main():
                 if not include:
                     continue
                 if pad_silence:
-                    clip_audio = quarter_sec_silence + audio_file[start:end] + half_sec_silence
+                    clip_audio = lead_silence + audio_file[start:end] + trail_silence
                 else:
                     clip_audio = audio_file[start:end]
 
