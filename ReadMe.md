@@ -62,7 +62,9 @@ Review corresponding wav and transcript files using [gecko.](https://gong-io.git
 
 To override the auto generated transcript, save the gecko save file as `same_filename.wav.transcript.json` in `../Workspace/$Name/gecko`
 
-`python gecko_split.py  --output ../Datasets --media ../Media/ --name {$Name} --min 0 --max 12000`
+`python gecko_split.py  --output ../Datasets --name {$Name} --min 0 --max 12000 --speaker "Joe Rogan"` 
+
+`--speaker` is optional. It filters the clips where gecko's speaker label is the name.
 
 This creates a subfolder in `../Datasets/` and creates a tacotron, waveglow and flowtron compatibile dataset.
 
