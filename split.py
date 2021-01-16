@@ -16,12 +16,18 @@ def split_single(output, name, basefilename, sound_file, frame_rate, length):
     output_dir = "{0}/{1}".format(output, frame_rate)
 
     if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)
+        os.makedirs(output_dir)
 
-    for i, chunk in enumerate(chunks):
-        chunk_name = "{0}/{1}_part{2:0>3d}.wav".format(output_dir, basefilename, i)
+    if len(chunks) == 1:
+        chunk = chunks[0]
+        chunk_name = "{0}/{1}.wav".format(output_dir, basefilename)
         print(chunk_name)
         chunk.export(chunk_name, format="wav")
+    else:
+        for i, chunk in enumerate(chunks):
+            chunk_name = "{0}/{1}_part{2:0>3d}.wav".format(output_dir, basefilename, i)
+            print(chunk_name)
+            chunk.export(chunk_name, format="wav")
 
 
 def main():
@@ -29,7 +35,7 @@ def main():
     parser.add_argument('--output', default='wavs', help='output directory')
     parser.add_argument('--input', default='../Workspace', help='input directory')
     parser.add_argument('--name', required=True, help='name of project')
-    parser.add_argument('--length', default=15, help='length in minutes of parts')
+    parser.add_argument('--length', default=15, type=int, help='length in minutes of parts')
     args = parser.parse_args()
 
     path = '{0}/{1}/src'.format(args.input, args.name)
@@ -58,7 +64,7 @@ def main():
         split_single(output_path, args.name, args.name, sound_file, 16000, args.length)
         split_single(output_path, args.name, args.name, sound_file, 22050, args.length)
     else:
-        print("Not a file or directory")
+        print("Not a file or directory:", path)
 
 
 if __name__ == "__main__":
