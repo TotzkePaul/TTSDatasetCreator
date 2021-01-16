@@ -59,25 +59,28 @@ def audiosegment_to_librosawav(audiosegment):
 
     return fp_arr
 
+
 def load_speaker_embeds(args):
     encoder = VoiceEncoder()
 
     speakers_dir = '{0}/{1}/{2}/'.format(args.media, args.name, args.speakers)
-    speakers_dir_subfolders = [f.path for f in os.scandir(speakers_dir) if f.is_dir()] # list(enumerate(glob.glob("/{}/*/".format(speakers_dir))))
     speaker_embeds_list = []
-    for speakers_dir_subfolder in speakers_dir_subfolders:
-        speaker_embeds = []
-        wav_file_list = list(enumerate(glob.glob("{}/*.wav".format(speakers_dir_subfolder))))
-        for index, wav_file in wav_file_list:
-            wav = AudioSegment.from_wav(wav_file)
-            librosa_npy = audiosegment_to_librosawav(wav)
-            librosa_wav = preprocess_wav(librosa_npy)
-            current_embed = encoder.embed_utterance(librosa_wav)
-            speaker_embeds.append(current_embed)
-        if len(speaker_embeds) > 0:
-            dirname = os.path.basename(speakers_dir_subfolder)
-            speaker_embeds_list.append((dirname, speaker_embeds,))
+    if os.path.exists(speakers_dir):
+        speakers_dir_subfolders = [f.path for f in os.scandir(speakers_dir) if f.is_dir()]
+        for speakers_dir_subfolder in speakers_dir_subfolders:
+            speaker_embeds = []
+            wav_file_list = list(enumerate(glob.glob("{}/*.wav".format(speakers_dir_subfolder))))
+            for index, wav_file in wav_file_list:
+                wav = AudioSegment.from_wav(wav_file)
+                librosa_npy = audiosegment_to_librosawav(wav)
+                librosa_wav = preprocess_wav(librosa_npy)
+                current_embed = encoder.embed_utterance(librosa_wav)
+                speaker_embeds.append(current_embed)
+            if len(speaker_embeds) > 0:
+                dirname = os.path.basename(speakers_dir_subfolder)
+                speaker_embeds_list.append((dirname, speaker_embeds,))
     return speaker_embeds_list
+
 
 def get_name_id(args, encoder, speaker_embeds_list, audio_segment):
     segment_npy = audiosegment_to_librosawav(audio_segment)
