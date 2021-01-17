@@ -9,7 +9,9 @@ FFmpeg, cuda, cudnn
 
 `cd ./TTSDatasetCreator`
 
-`conda env create -f ./win10_conda_env/transcribe.yml`
+For reference: `conda env create -f ./win10_conda_env/transcribe.yml`
+
+I recommend just going through the requirements.txt and install each of those individually. Tested with python=3.6
 
 Create Workspace, Models, DeepSpeechModels and Dataset Folders
 
