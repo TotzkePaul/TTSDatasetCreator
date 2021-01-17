@@ -24,13 +24,13 @@ and deepspeech-0.8.2-models.pbmm and deepspeech-0.8.2-models.scorer to DeepSpeec
 
 Pick a Workspace name (eg Rogan) and save source audio to `../Workspace/{WorkspaceName}/src`
 
-# Split
+# Split long in to manageable chunks
 
 split.py uses pydub to split files into 15 minute wav files. 16000hz for deepspeech and 22050 for Tacotron
 
 `python split.py --name={WorkspaceName}`
 
-# Segment
+# Auto Speaker Labeling for Multi-Speaker audio (optional) 
 
 For multiple speakers, go to https://gong-io.github.io/gecko/ and open a wav file from `../Workspace/$Name/wavs`
 
@@ -44,7 +44,9 @@ This will create subfolders under `../Workspace/{$Name}/speakers` with the names
 
 Those folders contain 3-second to 8-second clips of the speaker. These will be used to auto-tag other files.
 
-The more clips, the longer the next step runs but (ideally) more accurate segmentation. 
+The more clips, the longer the next step runs but (ideally) more accurate segmentation labeling.
+
+# Segment
 
 `python segment.py --name $Name`
 
