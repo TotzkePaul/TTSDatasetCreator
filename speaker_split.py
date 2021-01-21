@@ -9,12 +9,12 @@ import json
 
 def main():
     parser = argparse.ArgumentParser(description='Split audio based on gecko transcript.')
-    parser.add_argument('--output', required=True, help='output directory')
+    parser.add_argument('--output', default='speakers', help='output directory')
     parser.add_argument('--media', default='../Workspace', help='input directory')
 
     parser.add_argument('--name', required=True, help='name of project')
-    parser.add_argument('--min', default=3000, type=int, help='min duration of clip')
-    parser.add_argument('--max', default=8000, type=int, help='max duration of clip')
+    parser.add_argument('--min', default=100, type=int, help='min duration of clip')
+    parser.add_argument('--max', default=20000, type=int, help='max duration of clip')
     args = parser.parse_args()
 
     speaker_dir = '{0}/{1}/{2}'.format(args.media, args.name, args.output)

@@ -6,7 +6,6 @@ import time
 import glob
 import os
 import numpy as np
-import librosa
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent, detect_silence
 from pydub.utils import make_chunks
@@ -47,6 +46,53 @@ def remove_last_inhales(start, end, amplitudes, threshold, min_duration):
         offset = round(.85*offset)
         return [start, end - offset]
     return [start, end]
+
+
+def get_offset(amplitudes, threshold):
+    offset = next((index for index, val in enumerate(amplitudes) if val < threshold), 0)
+    return offset
+
+def widen_segments(segments, amplitudes, threshold):
+    output_segments = []
+
+    for start, stop in segments:
+        padding = 1000
+        start_amps = reversed(amplitudes[max(start-padding, 0):start])
+        stop_amps = amplitudes[stop:min(stop+padding, len(amplitudes))]
+
+        start_shift = get_offset(start_amps, threshold)
+
+        stop_shift = get_offset(stop_amps, threshold)
+
+        output_segments.append([start-start_shift, stop+stop_shift])
+
+    if len(output_segments) > 0 and output_segments[0] == [0, 0]:
+        output_segments.pop(0)
+
+    return output_segments
+
+
+def get_segments(args, audio_file, amplitudes):
+    segments = detect_nonsilent(audio_file, args.short_silence, args.silence_thresh)
+    dbfs_limit = np.percentile(amplitudes, [1, 2, 5, 10, 25])
+
+    print("Percentiles:", dbfs_limit)
+
+    is_expermental = False
+
+    if not is_expermental:
+        modified_segments = widen_segments(segments, amplitudes, dbfs_limit[2])
+    else:
+        modified_segments = remove_inhales(segments, amplitudes, dbfs_limit[0], args.short_silence, args.long_silence)
+
+    return modified_segments
+
+
+def sum_segment_duration(segments):
+
+    total = sum([end - start for start, end in segments])
+
+    return total
 
 
 def audiosegment_to_librosawav(audiosegment):
@@ -125,22 +171,13 @@ def segment_file(args, filepath, index):
 
     audio_file = AudioSegment.from_wav(filepath)
 
-    segments = detect_nonsilent(audio_file, args.short_silence, args.silence_thresh)
-
     amplitudes = [chunk.dBFS for chunk in make_chunks(audio_file, 1)]
 
-    is_expermental = True
+    segments = get_segments(args, audio_file, amplitudes)
 
-    quartiles = np.percentile(amplitudes, [5, 10, 25])
-    if not is_expermental:
-        modified_segments = segments
-    else:
-        modified_segments = remove_inhales(segments, amplitudes, quartiles[0], args.short_silence,
-                                           args.long_silence)
+    modified_segments = get_speaker_segments(args, audio_file, segments)
 
-    modified_segments = get_speaker_segments(args, audio_file, modified_segments)
-
-    print("{}: clips: {} 5% db:{} 10% db:{} 25% db:{} ".format(index, len(segments), quartiles[0], quartiles[1], quartiles[2]))
+    print("{}: clips: {} ".format(index, len(segments)))
 
     json_dict = dict()
     json_dict["schemaVersion"] = "1.0"
@@ -169,8 +206,6 @@ def segment_many(args, filepaths):
     for index, filepath in filepaths:
         segment_file(args, filepath, index)
         print('Transcribed file {} of {} from "{}"'.format(index + 1, len(filepaths), filepath))
-
-
 
 
 def segment_many_parallel(args, filepaths):

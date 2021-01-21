@@ -156,7 +156,72 @@ def get_speaker_segments(args, audio_file, segments_file):
         return speaker_segments
 
 
-def transcribe_file(args, ds, filepath, index):
+def create_deepspeech_model(args):
+    ds = Model(args.model)
+
+    if args.beam_width:
+        ds.setBeamWidth(args.beam_width)
+
+    if args.scorer:
+        print('Loading scorer from files {}'.format(args.scorer), file=sys.stderr)
+        scorer_load_start = timer()
+        ds.enableExternalScorer(args.scorer)
+        scorer_load_end = timer() - scorer_load_start
+        print('Loaded scorer in {:.3}s.'.format(scorer_load_end), file=sys.stderr)
+
+        if args.lm_alpha and args.lm_beta:
+            ds.setScorerAlphaBeta(args.lm_alpha, args.lm_beta)
+
+    if args.hot_words:
+        print('Adding hot-words', file=sys.stderr)
+        for word_boost in args.hot_words.split(','):
+            word, boost = word_boost.split(':')
+            ds.addHotWord(word, float(boost))
+
+    return ds
+
+
+def get_file_as_string(filename):
+    with open(filename, "r", encoding='utf8') as file:
+        data = file.read()
+    return data
+
+
+def strip_punc(str_input):
+    """Strips punctuation from list of words"""
+    puncList = [".", ";", ":", "!", "?", "/", "\\", ",", "#", "@", "$", "&", ")", "(", "\"", "-", "[", "]"]
+    for punc in puncList:
+        str_input = str_input.replace(punc, ' ')
+    return str_input
+
+
+def add_hot_words(args, ds, filename):
+    # get file
+    hot_words_dir = '{0}/{1}/{2}/'.format(args.media, args.name, args.hot_words_dir)
+
+    hot_word_filename = '{0}/{1}.txt'.format(hot_words_dir, filename)
+
+    if not os.path.exists(hot_word_filename):
+        filename_no_ext = os.path.splitext(filename)[0]
+        hot_word_filename = '{0}/{1}.txt'.format(hot_words_dir, filename_no_ext)
+
+    if not os.path.exists(hot_word_filename):
+        return None
+
+    hot_words_content = get_file_as_string(hot_word_filename)
+
+    unique_hot_words = set(strip_punc(hot_words_content).split())
+
+    word_list = list(unique_hot_words)
+
+    for word in word_list:
+        boost = 0.7
+        ds.addHotWord(word, float(boost))
+
+    return None
+
+
+def transcribe_file(args, filepath, index):
     sys.setrecursionlimit(15000)
 
     if not os.path.exists('{0}/{1}/{2}/'.format(args.media, args.name, args.output)):
@@ -168,7 +233,11 @@ def transcribe_file(args, ds, filepath, index):
 
     segment_path = '{0}/{1}/{2}/{3}.segment.json'.format(args.media, args.name, args.output, file_basename)
 
+
     print("{}: {}".format(index, filepath))
+
+    ds = create_deepspeech_model(args)
+    add_hot_words(args, ds, file_basename)
 
     audio_file = AudioSegment.from_wav(filepath)
 
@@ -256,31 +325,8 @@ def transcribe_file(args, ds, filepath, index):
 
 
 def transcribe_many(args, filepaths):
-    ds = Model(args.model)
-
-    if args.beam_width:
-        ds.setBeamWidth(args.beam_width)
-
-    if args.scorer:
-        print('Loading scorer from files {}'.format(args.scorer), file=sys.stderr)
-        scorer_load_start = timer()
-        ds.enableExternalScorer(args.scorer)
-        scorer_load_end = timer() - scorer_load_start
-        print('Loaded scorer in {:.3}s.'.format(scorer_load_end), file=sys.stderr)
-
-        if args.lm_alpha and args.lm_beta:
-            ds.setScorerAlphaBeta(args.lm_alpha, args.lm_beta)
-
-    if args.hot_words:
-        print('Adding hot-words', file=sys.stderr)
-        for word_boost in args.hot_words.split(','):
-            word, boost = word_boost.split(':')
-            ds.addHotWord(word, float(boost))
-
     for index, filepath in filepaths:
-        # if index < 48:
-        #     continue
-        transcribe_file(args, ds, filepath, index)
+        transcribe_file(args, filepath, index)
         print('Transcribed file {} of {} from "{}"'.format(index + 1, len(filepaths), filepath))
 
 
@@ -328,6 +374,7 @@ def main():
     parser.add_argument('--candidate_transcripts', type=int, default=3,
                         help='Number of candidate transcripts to include in JSON output')
     parser.add_argument('--hot_words', type=str, help='Hot-words and their boosts.')
+    parser.add_argument('--hot_words_dir', default='hot_words', help='input directory')
     parser.add_argument('--output', default='transcripts', help='output directory')
     parser.add_argument('--media', default='../Workspace', help='input directory')
     parser.add_argument('--name', required=True, help='name of project')
@@ -336,7 +383,6 @@ def main():
     parser.add_argument('--min', default=2, type=int, help='min clip duration in seconds')
     parser.add_argument('--max', default=5, type=int, help='max clip duration in seconds')
     parser.add_argument('--reuse', dest='reuse', action='store_true', help='reuse transcripts')
-    # parser.add_argument('--punctuate', default=False, help='use puncuation')
     parser.add_argument('--silence_thresh', default=-65, help='silence threshold for silences(db)')
     parser.set_defaults(reuse=False)
     args = parser.parse_args()

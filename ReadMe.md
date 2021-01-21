@@ -2,7 +2,6 @@
 
 FFmpeg, cuda, cudnn
 
-
 # Init
 
 `git clone https://github.com/TotzkePaul/TTSDatasetCreator/`
@@ -59,6 +58,13 @@ You can review and edit this file in [gecko](https://gong-io.github.io/gecko/)
 `python transcribe.py --model ../DeepSpeechModels/deepspeech-0.8.2-models.pbmm --scorer ../DeepSpeechModels/deepspeech-0.8.2-models.scorer --name={WorkspaceName}`
 
 This will create `same_filename.wav.transcript.json` for each wav in `../Workspace/$Name/wavs`
+
+Have approximate transcripts? Save txt files to `../Workspace/$Name/hot_words` as audiofile1.wav.txt or audiofile1.txt 
+
+Currently, this just extracts all unique words and boosts them by the same amount.
+
+If you see warnings like missing dll, either update tensorflow or use the following
+`conda install -c anaconda cudatoolkit=10.1`
 
 # Gecko_Split
 
