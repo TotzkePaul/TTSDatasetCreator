@@ -63,8 +63,11 @@ Have approximate transcripts? Save txt files to `../Workspace/$Name/hot_words` a
 
 Currently, this just extracts all unique words and boosts them by the same amount.
 
-If you see warnings like missing dll, either update tensorflow or use the following
+If you see warnings like missing dll, either update tensorflow or use the following:
+
 `conda install -c anaconda cudatoolkit=10.1`
+
+`conda install -c anaconda cudnn`
 
 # Gecko_Split
 
