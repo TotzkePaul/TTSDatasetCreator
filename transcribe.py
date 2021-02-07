@@ -151,7 +151,7 @@ def get_speaker_segments(args, audio_file, segments_file):
 
             if not is_any_similar:
                 speaker_embeds.append(current_embed)
-            speaker_segments.append((name_id, [start, end]))
+            speaker_segments.append((name_id, start, end,))
 
         return speaker_segments
 
