@@ -87,8 +87,6 @@ def main():
             for i, monologue in enumerate(json_data["monologues"]):
 
                 sentence = terms_to_string(monologue["terms"])
-                if sentence[-1] != '.' or sentence[-1] != ',' or sentence[-1] != '?':
-                    sentence = sentence + '.'
 
                 clip_name = "{0}_{1:0>4d}.wav".format(base_clip_name, i)
 
@@ -114,6 +112,8 @@ def main():
 
                 if not include:
                     continue
+                if sentence[-1] != '.' or sentence[-1] != ',' or sentence[-1] != '?':
+                    sentence = sentence + '.'
                 if pad_silence:
                     clip_audio = lead_silence + audio_file[start:end] + trail_silence
                 else:
