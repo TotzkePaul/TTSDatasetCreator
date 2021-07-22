@@ -225,6 +225,7 @@ def main():
     parser.add_argument('--output', default='transcripts', help='output directory')
     parser.add_argument('--speakers', default='speakers', help='output directory')
     parser.add_argument('--media', default='../Workspace', help='input directory')
+    parser.add_argument('--ext', default='m4a', help='file types')
     parser.add_argument('--name', required=True, help='name of project')
     parser.add_argument('--long_silence', default=1000, help='input directory')
     parser.add_argument('--short_silence', default=500, type=int, help='input directory')
@@ -238,7 +239,7 @@ def main():
 
     input_dir = '{0}/{1}/wavs/16000'.format(args.media, args.name)
 
-    filepaths = list(enumerate(sorted(glob.glob("{0}/*.wav".format(input_dir)), key=os.path.basename)))
+    filepaths = list(enumerate(sorted(glob.glob("{0}/*.{1}".format(input_dir, args.ext)), key=os.path.basename)))
 
     if args.max_workers is not 1:
         print("segment_many_parallel")

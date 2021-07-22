@@ -2,15 +2,52 @@
 
 FFmpeg, cuda, cudnn
 
+Miniconda3 Windows 64-bit (Python 3.8):
+
+https://docs.conda.io/en/latest/miniconda.html
+
+install pytorch
+
+`conda install pytorch cudatoolkit=11.1 -c pytorch -c conda-forge`
+
+ffmpeg for Win10: 
+https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2021-07-21-12-38
+
+ffmpeg-N-103022-gf614390ecc-win64-gpl.zip
+
+# Overview
+
+1. init.py creates the Workspace folder structure.
+
+   |---Datasets
+   |---DeepSpeechModels
+   |---Models
+   |---TTSDatasetCreator
+   |-----win10_conda_env
+   |---Workspace
+   |-----$(workspace)
+   |-------gecko
+   |-------speakers
+   |-------src
+   |-------transcripts
+   |-------wavs
+
+2. split.py converts the audio files in ./Workspace/$(workspace)/src into TacoTron-compatible 16000hz & 22050hz wavs in the wavs folder with --length X, were X is the max minutes per part ( eg --length 60 for a 2 hour audio file will make 2 parts)
+3. (optional) segment.py creates $(wav_file).segment.json in the transcripts folder that marks where speech is taking place
+4. transcribe.py uses Mozilla's Deepspeech to do Speech To Text and creates Gecko compatible $(wav_file).transcript.json which uses $(wav_file).segment.json if it exists or does it dynamically
+5. Open $(wav_file).transcript.json in Gecko https://gong-io.github.io/gecko/ and save results to the gecko folder
+6. gecko_split.py creates the finished dataset
+
+Colab Example: 
+https://colab.research.google.com/drive/1r-tsd5XyqAWtnhAVSqHFUKdPa_ViAUVU?usp=sharing
+
 # Init
 
 `git clone https://github.com/TotzkePaul/TTSDatasetCreator/`
 
 `cd ./TTSDatasetCreator`
 
-For reference: `conda env create -f ./win10_conda_env/transcribe.yml`
-
-I recommend just going through the requirements.txt and install each of those individually. Tested with python=3.6
+Tested with python=3.7
 
 Create Workspace, Models, DeepSpeechModels and Dataset Folders
 
@@ -19,7 +56,19 @@ Create Workspace, Models, DeepSpeechModels and Dataset Folders
 Go to https://github.com/mozilla/DeepSpeech/releases/tag/v0.8.2
 and deepspeech-0.8.2-models.pbmm and deepspeech-0.8.2-models.scorer to DeepSpeechModels
 
-# Save mp4, wav and m4a files ../Workspace/{$Name}/src 
+Win10: 
+
+`curl https://github.com/mozilla/DeepSpeech/releases/download/v0.8.2/deepspeech-0.8.2-models.pbmm -o '../DeepSpeechModels/deepspeech-0.8.2-models.pbmm'`
+
+`curl https://github.com/mozilla/DeepSpeech/releases/download/v0.8.2/deepspeech-0.8.2-models.scorer -o '../DeepSpeechModels/deepspeech-0.8.2-models.scorer'`
+
+Linux: 
+
+`!wget -O '../DeepSpeechModels/deepspeech-0.8.2-models.pbmm' https://github.com/mozilla/DeepSpeech/releases/download/v0.8.2/deepspeech-0.8.2-models.pbmm`
+
+`!wget -O '../DeepSpeechModels/deepspeech-0.8.2-models.scorer' https://github.com/mozilla/DeepSpeech/releases/download/v0.8.2/deepspeech-0.8.2-models.scorer`
+
+# Save mp3, wav and m4a files ../Workspace/{$Name}/src 
 
 Pick a Workspace name (eg Rogan) and save source audio to `../Workspace/{WorkspaceName}/src`
 

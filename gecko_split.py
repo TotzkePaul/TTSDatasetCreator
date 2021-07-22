@@ -7,6 +7,14 @@ from pydub.generators import WhiteNoise
 import json
 
 
+def speed_change(sound, speed=1.0):
+    # we need to use the sound because pydub can't change the speed of the sample
+    # and it's faster to create a new one than to re-encode
+    sound_with_altered_frame_rate = sound._spawn(sound.raw_data, overrides={
+        "frame_rate": int(sound.frame_rate * speed)
+    })
+    return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
+
 def partition(l, pred):
     yes, no = [], []
     for e in l:
@@ -20,7 +28,7 @@ def partition(l, pred):
 def terms_to_string(terms):
     sentence = ' '.join(term["text"] for term in terms)
     return sentence.replace(' ,', ',').replace(' .', '.')
-
+   
 
 def main():
     parser = argparse.ArgumentParser(description='Split audio based on gecko transcript.')
@@ -33,6 +41,7 @@ def main():
     parser.add_argument('--lead_silence', default=0, help='amount to trim at beginning')
     parser.add_argument('--trail_silence', default=0, help='amount to trim at end')
     parser.add_argument('--partition', default=.9, help='max duration of clip')
+    parser.add_argument('--augment', default=2, help='amount to augment')
     args = parser.parse_args()
 
     output_dir = '{0}/{1}'.format(args.output, args.name)
@@ -40,6 +49,8 @@ def main():
     audio_dir = '{0}/wavs/22050/'.format(workspace_dir)
     transcript_dir = '{0}/transcripts'.format(workspace_dir)
     gecko_dir = '{0}/gecko'.format(workspace_dir)
+
+    use_augmented =  args.augment > 0
 
     print(output_dir, audio_dir, transcript_dir, gecko_dir)
 
@@ -54,6 +65,7 @@ def main():
 
     pad_silence = (args.lead_silence + args.trail_silence) > 0
     train_txt = []
+    augmented_txt = []
     dummy_txt = []
 
     train_set = []
@@ -84,8 +96,7 @@ def main():
         with open(filepath) as json_file:
             json_data = json.load(json_file)
             print(filepath)
-            for i, monologue in enumerate(json_data["monologues"]):
-
+            for i, monologue in enumerate(json_data["monologues"]):                
                 sentence = terms_to_string(monologue["terms"])
 
                 clip_name = "{0}_{1:0>4d}.wav".format(base_clip_name, i)
@@ -108,6 +119,8 @@ def main():
                     cntr = cntr + 1
                     print("long clips: ", cntr)
 
+                
+
                 print('path:', clip_path, 'Sentence:', sentence, 'duration:', duration, "include:", include)
 
                 if not include:
@@ -126,6 +139,31 @@ def main():
                 dummy_txt.append('{}/{}|{}'.format('DUMMY', clip_name, sentence))
                 flowtron_txt.append('{}/wavs/{}|{}|0'.format(output_dir, clip_name, sentence))
 
+                if use_augmented:    
+                    mid = int((end-start) / 2 + start)
+                    print(start, mid, end)
+                    a0 = audio_file[start:mid]
+                    b0 = audio_file[mid:end]
+                    
+                    a = [ a0, speed_change(a0, speed=0.98), speed_change(a0, speed=0.99), speed_change(a0, speed=1.01),speed_change(a0, speed=1.02)]
+                    b = [ b0, speed_change(b0, speed=0.98), speed_change(b0, speed=0.99),  speed_change(b0, speed=1.01),speed_change(b0, speed=1.02)]
+                    
+                    for idx1, half1 in enumerate(a):
+                        for idx2, half2 in enumerate(b):
+                            if(idx1 != idx2) and (idx1 == 0 or idx2 == 0):                                
+                                augmented_clip_name = "{0}_{1:0>4d}_a{2}-{3}.wav".format(base_clip_name, i, idx1, idx2)
+                                augmented_clip_path = "{0}/wavs/{1}".format(output_dir, augmented_clip_name)
+                                
+                                augmented_clip = half1 + half2
+                                augmented_clip.export(augmented_clip_path, format="wav")
+                                augmented_txt.append('{}/wavs/{}|{}'.format(output_dir, augmented_clip_name, sentence))
+
+                                print('path:', augmented_clip_name, 'Sentence:', sentence, 'duration:', duration, "include:", include)
+
+                    
+
+
+
     dummy_filelist = '{}/dummy_{}_all.txt'.format(output_dir, args.name)
     complete_filelist = '{}/{}_all.txt'.format(output_dir, args.name)
     train_filelist = '{}/{}_train.txt'.format(output_dir, args.name)
@@ -141,6 +179,7 @@ def main():
     lines1, lines2 = partition(lines, lambda x: random.random() < args.partition)
 
     train_set.extend(lines1)
+    train_set.extend(augmented_txt)
     val_set.extend(lines2)
 
     flowtron_train, flowtron_val = partition(flowtron_txt, lambda x: random.random() < args.partition)

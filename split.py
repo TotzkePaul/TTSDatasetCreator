@@ -44,19 +44,15 @@ def main():
     # Export all of the individual chunks as wav files
     if os.path.isdir(path):
         print('directory:', path)
-        for filepath in glob.glob('{0}/*.wav'.format(path)):
-            basefilename = os.path.splitext(os.path.basename(filepath))[0]
-            print('basefilename:', basefilename, 'path:', filepath)
-            sound_file = AudioSegment.from_file(filepath)
-            split_single(output_path, args.name, basefilename, sound_file, 16000, args.length)
-            split_single(output_path, args.name, basefilename, sound_file, 22050, args.length)
+        exts = ["m4a","wav","mp3"]
 
-        for filepath in glob.glob('{0}/*.mp3'.format(path)):
-            basefilename = os.path.splitext(os.path.basename(filepath))[0]
-            print('basefilename:', basefilename, 'path:', filepath)
-            sound_file = AudioSegment.from_file(filepath)
-            split_single(output_path, args.name, basefilename, sound_file, 16000, args.length)
-            split_single(output_path, args.name, basefilename, sound_file, 22050, args.length)
+        for ext in exts:
+            for filepath in glob.glob('{0}/*.{1}'.format(path, ext)):
+                basefilename = os.path.splitext(os.path.basename(filepath))[0]
+                print('basefilename:', basefilename, 'path:', filepath)
+                sound_file = AudioSegment.from_file(filepath)
+                split_single(output_path, args.name, basefilename, sound_file, 16000, args.length)
+                split_single(output_path, args.name, basefilename, sound_file, 22050, args.length)
 
     elif os.path.isfile(path):
         print('path:', path)
